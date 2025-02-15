@@ -1,0 +1,103 @@
+﻿@page "/register"
+@using System.Text.Json
+@using SportFacilities.Frontend.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<MudPaper Class="pa-4" Style="margin: 2rem auto; width:400px;">
+    <MudText Typo="Typo.h5">Rejestracja</MudText>
+
+    <MudTextField @bind-Value="model.Email" Label="Email" Required="true"/>
+    <MudTextField @bind-Value="model.Password" Label="Hasło" InputType="InputType.Password" Required="true"/>
+    <MudTextField @bind-Value="confirmPassword" Label="Potwierdź hasło" InputType="InputType.Password" Required="true"/>
+    <MudButton Color="Color.Primary" OnClick="@RegisterUser">Zarejestruj</MudButton>
+
+    @if (errorMessages.Any())
+    {
+        <MudAlert Severity="Severity.Error">
+            <ul>
+                @foreach (var error in errorMessages)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </MudAlert>
+    }
+</MudPaper>
+
+@code {
+    private RegisterDto model = new();
+    private string confirmPassword;
+    private List<string> errorMessages = new();
+
+    private async Task RegisterUser()
+    {
+        errorMessages.Clear();
+
+        if (model.Password != confirmPassword)
+        {
+            errorMessages.Add("Hasła nie są zgodne.");
+            return;
+        }
+
+        try
+        {
+            var response = await AuthService.RegisterAsync(model);
+            Navigation.NavigateTo("/");
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiException(ex);
+        }
+        catch (Exception ex)
+        {
+            errorMessages.Add("Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.");
+            Console.WriteLine($"Unexpected error: {ex.Message}");
+        }
+    }
+
+    private async Task HandleApiException(ApiException ex)
+    {
+        if (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            try
+            {
+                var errorResponse = JsonSerializer.Deserialize<ValidationErrorResponse>(ex.Response, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (errorResponse?.Errors != null)
+                {
+                    foreach (var error in errorResponse.Errors.Values)
+                    {
+                        errorMessages.AddRange(error);
+                    }
+                }
+                else
+                {
+                    errorMessages.Add("Błąd walidacji. Sprawdź wprowadzone dane.");
+                }
+            }
+            catch
+            {
+                errorMessages.Add("Nieprawidłowa odpowiedź z serwera.");
+            }
+        }
+        else if (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            errorMessages.Add("Nieautoryzowany dostęp. Sprawdź swoje dane logowania.");
+        }
+        else if (ex.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+        {
+            errorMessages.Add("Wystąpił błąd serwera. Spróbuj ponownie później.");
+        }
+        else
+        {
+            errorMessages.Add("Nieznany błąd. Spróbuj ponownie.");
+        }
+    }
+
+    private class ValidationErrorResponse
+    {
+        public string Title { get; set; }
+        public Dictionary<string, List<string>> Errors { get; set; }
+    }
+
+}

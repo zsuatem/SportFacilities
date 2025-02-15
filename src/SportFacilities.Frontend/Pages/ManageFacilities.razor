@@ -1,0 +1,166 @@
+﻿@page "/managefacilities"
+@attribute [Authorize(Roles = "Administrator")]
+@using Microsoft.AspNetCore.Authorization
+@using SportFacilities.Frontend.Components
+@using SportFacilities.Frontend.Services
+@inject ISportFacilityService FacilityService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Zarządzanie obiektami sportowymi</PageTitle>
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h5">Lista obiektów sportowych</MudText>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddFacilityDialog" Class="mb-4">
+        Dodaj Obiekt
+    </MudButton>
+
+    <MudTable Items="facilities" Hover="true">
+        <HeaderContent>
+            <MudTh>Nazwa</MudTh>
+            <MudTh>Opis</MudTh>
+            <MudTh>Lokacja</MudTh>
+            <MudTh>Rezerwacje</MudTh>
+            <MudTh>Akcje</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.Description</MudTd>
+            <MudTd>@context.Location</MudTd>
+            <MudTd>
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           OnClick="@(() => NavigateToReservations(context.Id))">Rezerwacje
+                </MudButton>
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                               OnClick="@(() => OpenEditFacilityDialog(context))"/>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="@(() => ConfirmDeleteFacility(context))"/>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private List<SportFacilityDto> facilities = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFacilities();
+    }
+
+    private async Task LoadFacilities()
+    {
+        try
+        {
+            facilities = await FacilityService.GetAllFacilitiesAsync();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add($"Błąd API: {ex.Message}", Severity.Error);
+            Console.WriteLine($"API Error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task OpenAddFacilityDialog()
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Facility", new SportFacilityDto
+        {
+            Availabilities = Enum.GetValues(typeof(DayOfWeek))
+                .Cast<DayOfWeek>()
+                .Select(d => new FacilityAvailabilityDto
+                {
+                    DayOfWeek = d,
+                    IsAvailable = false
+                })
+                .ToList()
+        });
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<EditFacilityForm>("Dodaj obiekt sportowy", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadFacilities();
+            Snackbar.Add("Obiekt sportowy został dodany pomyślnie.", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditFacilityDialog(SportFacilityDto facility)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Facility", facility);
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<EditFacilityForm>("Edytuj obiekt sportowy", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadFacilities();
+            Snackbar.Add("Obiekt sportowy został zaktualizowany pomyślnie.", Severity.Success);
+        }
+    }
+
+    private void NavigateToReservations(int facilityId)
+    {
+        Navigation.NavigateTo($"/managefacilities/{facilityId}/reservations");
+    }
+
+    private void ConfirmDeleteFacility(SportFacilityDto facility)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Message", $"Czy na pewno chcesz usunąć: {facility.Name}?" }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+
+        var dialog = DialogService.Show<ConfirmDeleteDialog>("Usuwanie obiektu sportowego", parameters, options);
+        _ = HandleDeleteDialogResult(dialog, facility);
+    }
+
+    private async Task HandleDeleteDialogResult(IDialogReference dialog, SportFacilityDto facility)
+    {
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is bool confirm && confirm)
+        {
+            try
+            {
+                var deleteResult = await FacilityService.DeleteFacilityAsync(facility.Id);
+                if (deleteResult)
+                {
+                    await LoadFacilities();
+                    Snackbar.Add("Obiekt sportowy został usunięty pomyślnie.", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Nie udało się usunąć obiektu sportowego.", Severity.Error);
+                }
+            }
+            catch (ApiException ex)
+            {
+                Snackbar.Add($"Błąd API: {ex.Message}", Severity.Error);
+                Console.WriteLine($"API Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+    }
+
+}

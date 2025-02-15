@@ -1,0 +1,160 @@
+﻿@using System.Globalization
+@using MudBlazor
+@using SportFacilities.Contracts
+@using Microsoft.AspNetCore.Components.Forms
+@using SportFacilities.Frontend.Services
+@inject ISportFacilityService FacilityService
+@inject ISnackbar Snackbar
+
+<EditForm Model="Facility" OnValidSubmit="HandleValidSubmit">
+    <MudPaper Class="pa-4">
+        <MudTextField @bind-Value="Facility.Name" Label="Nazwa" Required="true"/>
+        <MudTextField @bind-Value="Facility.Location" Label="Lokalizacja" Required="true"/>
+        <MudTextField @bind-Value="Facility.Description" Label="Opis" Required="true"/>
+
+        <MudDivider Class="my-4"/>
+
+        <MudText Typo="Typo.subtitle1">Dostępność</MudText>
+        <MudList T="List<FacilityAvailabilityDto?>">
+            @foreach (var availability in Facility.Availabilities.OrderBy(a => ((int)a.DayOfWeek == 0) ? 6 : ((int)a.DayOfWeek - 1)))
+            {
+                <MudListItem T="FacilityAvailabilityDto?">
+                    <MudGrid>
+                        <MudItem xs="6">
+                            <MudSwitch T="bool" @bind-Value="availability.IsAvailable"
+                                       Label="@GetDayNamePolish(availability.DayOfWeek, polishCulture)"
+                                       Color="Color.Primary"/>
+                        </MudItem>
+                        @if (availability.IsAvailable)
+                        {
+                            <MudItem xs="3">
+                                <MudTimePicker T="TimeSpan" Time="@(availability.OpeningTime ??= DefaultOpeningTime)"
+                                               Label="Otwarcie"
+                                               Clearable="false"/>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudTimePicker T="TimeSpan" Time="@(availability.ClosingTime ??= DefaultClosingTime)"
+                                               Label="Zamknięcie"
+                                               Clearable="false"/>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudListItem>
+            }
+        </MudList>
+
+        @if (errorMessages.Any())
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-2">
+                <ul>
+                    @foreach (var error in errorMessages)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </MudAlert>
+        }
+
+        <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4">
+            @(Facility.Id == 0 ? "Dodaj" : "Zapisz")
+        </MudButton>
+    </MudPaper>
+</EditForm>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public SportFacilityDto Facility { get; set; }
+    [Parameter] public EventCallback OnValidSubmit { get; set; }
+
+    private readonly CultureInfo polishCulture = new CultureInfo("pl-PL");
+    private List<string> errorMessages = new();
+    private TimeSpan DefaultOpeningTime => TimeSpan.FromHours(7);
+    private TimeSpan DefaultClosingTime => TimeSpan.FromHours(20);
+
+
+    private string GetDayNamePolish(DayOfWeek day, CultureInfo culture) =>
+        FirstCharToUpper(culture.DateTimeFormat.GetDayName(day));
+
+    private static string FirstCharToUpper(string input) =>
+        string.IsNullOrEmpty(input) ? input : char.ToUpper(input[0]) + input[1..];
+
+
+    private async Task HandleValidSubmit()
+    {
+        errorMessages.Clear();
+
+        // Walidacja
+        if (string.IsNullOrWhiteSpace(Facility.Name))
+        {
+            errorMessages.Add("Nazwa jest wymagana.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Facility.Location))
+        {
+            errorMessages.Add("Lokacja jest wymagana.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Facility.Description))
+        {
+            errorMessages.Add("Opis jest wymagany.");
+        }
+
+        foreach (var availability in Facility.Availabilities)
+        {
+            if (availability.IsAvailable)
+            {
+                if (availability.OpeningTime == null || availability.ClosingTime == null)
+                {
+                    errorMessages.Add($"Godziny otwarcia/zamknięcia dla {availability.DayOfWeek} są wymagane.");
+                }
+                else if (availability.ClosingTime <= availability.OpeningTime)
+                {
+                    errorMessages.Add($"Godzina zamknięcia musi być późniejsza niż godzina otwarcia dla {availability.DayOfWeek}.");
+                }
+            }
+        }
+
+        if (errorMessages.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            Console.WriteLine(Facility);
+            if (Facility.Id == 0)
+            {
+                await FacilityService.CreateFacilityAsync(Facility);
+                Snackbar.Add("Obiekt sportowy został dodany pomyślnie.", Severity.Success);
+            }
+            else
+            {
+                var updateResult = await FacilityService.UpdateFacilityAsync(Facility.Id, Facility);
+                if (updateResult)
+                {
+                    Snackbar.Add("Obiekt sportowy został zaktualizowany pomyślnie.", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Nie udało się zaktualizować obiektu sportowego.", Severity.Error);
+                    return;
+                }
+            }
+
+            await OnValidSubmit.InvokeAsync();
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiException ex)
+        {
+            errorMessages.Add($"Błąd API: {ex.Message}");
+            Snackbar.Add($"Błąd API: {ex.Message}", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            errorMessages.Add("Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.");
+            Snackbar.Add("Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.", Severity.Error);
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+}

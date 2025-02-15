@@ -1,0 +1,59 @@
+﻿@page "/profile"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using SportFacilities.Contracts
+@using SportFacilities.Frontend.Services
+@inject IProfileService ProfileService
+@inject ISnackbar Snackbar
+
+<PageTitle>Profil</PageTitle>
+
+<MudPaper Class="pa-4" Style="max-width: 500px; margin: auto;">
+    <MudText Typo="Typo.h5" Class="mb-4">Profil użytkownika</MudText>
+
+    <MudTextField @bind-Value="Email" Label="Email" Disabled="true"/>
+
+    <MudDivider Class="my-4"/>
+
+    <MudText Typo="Typo.h6" Class="mb-2">Zmień hasło</MudText>
+    <EditForm Model="passwordModel" OnValidSubmit="ChangePassword">
+        <MudTextField @bind-Value="passwordModel.CurrentPassword" Label="Aktualne hasło" InputType="InputType.Password"
+                      Required="true"/>
+        <MudTextField @bind-Value="passwordModel.NewPassword" Label="Nowe hasło" InputType="InputType.Password"
+                      Required="true"/>
+        <MudTextField @bind-Value="passwordModel.ConfirmPassword" Label="Potwierdź nowe hasło"
+                      InputType="InputType.Password" Required="true"/>
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">
+            Zmień hasło
+        </MudButton>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private string Email;
+    private ChangePasswordDto passwordModel = new ChangePasswordDto();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var profile = await ProfileService.GetProfileAsync();
+        if (profile != null)
+        {
+            Email = profile.Email;
+        }
+    }
+
+    private async Task ChangePassword()
+    {
+        var response = await ProfileService.ChangePasswordAsync(passwordModel);
+        if (response.IsSuccess)
+        {
+            Snackbar.Add("Hasło zostało zmienione pomyślnie.", Severity.Success);
+            passwordModel = new ChangePasswordDto();
+        }
+        else
+        {
+            Snackbar.Add(response.ErrorMessage, Severity.Error);
+        }
+    }
+
+}

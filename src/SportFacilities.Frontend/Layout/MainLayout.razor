@@ -1,0 +1,83 @@
+﻿@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using SportFacilities.Frontend.Services
+@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthProvider
+@inject ITokenService TokenService
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudLayout>
+    <MudAppBar Color="Color.Primary">
+        <MudButton OnClick="@(() => Nav.NavigateTo("/"))" Variant="Variant.Text" Color="Color.Inherit">
+            <MudText Typo="Typo.h6" Class="me-2">Sport Facilities</MudText>
+        </MudButton>
+
+        <MudSpacer/>
+
+        @if (isAuthenticated)
+        {
+            <MudButton OnClick="@(() => Nav.NavigateTo("/profile"))" Variant="Variant.Text" Color="Color.Inherit">
+                Profil
+            </MudButton>
+
+            @if (userRoles.Contains("Administrator"))
+            {
+                <MudButton OnClick="@(() => Nav.NavigateTo("/adminpanel"))" Variant="Variant.Text"
+                           Color="Color.Inherit">
+                    Admin Panel
+                </MudButton>
+            }
+
+            <MudButton OnClick="LogoutUser" Variant="Variant.Text" Color="Color.Inherit">
+                Wyloguj
+            </MudButton>
+        }
+        else
+        {
+            <MudButton OnClick='() => Nav.NavigateTo("/login")' Variant="Variant.Text" Color="Color.Inherit">Zaloguj
+            </MudButton>
+            <MudButton OnClick='() => Nav.NavigateTo("/register")' Variant="Variant.Text" Color="Color.Inherit">
+                Zarejestruj
+            </MudButton>
+        }
+    </MudAppBar>
+
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool isAuthenticated;
+    private List<string> userRoles = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        isAuthenticated = user.Identity.IsAuthenticated;
+
+        if (isAuthenticated)
+        {
+            userRoles = user.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToList();
+        }
+    }
+
+    private async Task LogoutUser()
+    {
+        await TokenService.RemoveTokenAsync();
+        if (AuthProvider is ApiAuthenticationStateProvider provider)
+        {
+            provider.NotifyUserLogout();
+        }
+
+        Nav.NavigateTo("/", true);
+        Snackbar.Add("Zostałeś pomyślnie wylogowany.", Severity.Success);
+    }
+}

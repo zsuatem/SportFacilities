@@ -1,0 +1,152 @@
+﻿@page "/managefacilities/{FacilityId:int}/reservations"
+@attribute [Authorize(Roles = "Administrator")]
+@using Microsoft.AspNetCore.Authorization
+@using SportFacilities.Frontend.Components
+@using SportFacilities.Frontend.Services
+@inject IReservationService ReservationService
+@inject ISportFacilityService FacilityService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Zarządzanie Rezerwacjami</PageTitle>
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h5">Rezerwacje dla @facility?.Name</MudText>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddReservationDialog" Class="mb-4">
+        Dodaj Rezerwację
+    </MudButton>
+
+    <MudTable Items="reservations" Hover="true">
+        <HeaderContent>
+            <MudTh>Użytkownik</MudTh>
+            <MudTh>Start</MudTh>
+            <MudTh>Koniec</MudTh>
+            <MudTh>Opis</MudTh>
+            <MudTh>Akcje</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.UserEmail</MudTd>
+            <MudTd>@context.StartTime.ToString("g")</MudTd>
+            <MudTd>@context.EndTime.ToString("g")</MudTd>
+            <MudTd>@context.Description</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="@(() => ConfirmDeleteReservation(context))"/>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudPaper>
+
+@code {
+    [Parameter] public int FacilityId { get; set; }
+
+    private SportFacilityDto facility = new();
+    private List<ReservationDto> reservations = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFacility();
+        await LoadReservations();
+    }
+
+    private async Task LoadFacility()
+    {
+        try
+        {
+            facility = await FacilityService.GetFacilityByIdAsync(FacilityId);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add($"Błąd API: {ex.Message}", Severity.Error);
+            Console.WriteLine($"API Error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadReservations()
+    {
+        try
+        {
+            reservations = await ReservationService.GetReservationsAsync(FacilityId);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add($"Błąd API: {ex.Message}", Severity.Error);
+            Console.WriteLine($"API Error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task OpenAddReservationDialog()
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("FacilityId", FacilityId);
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<EditReservationForm>("Dodaj Rezerwację", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadReservations();
+            Snackbar.Add("Rezerwacja została dodana pomyślnie.", Severity.Success);
+        }
+    }
+
+    private void ConfirmDeleteReservation(ReservationDto reservation)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Title", "Potwierdź Usunięcie Rezerwacji" },
+            { "Message", $"Czy na pewno chcesz usunąć rezerwację: {reservation.Description}?" }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+
+        var dialog = DialogService.Show<ConfirmDeleteDialog>("Potwierdź Usunięcie", parameters, options);
+        _ = HandleDeleteDialogResult(dialog, reservation);
+    }
+
+    private async Task HandleDeleteDialogResult(IDialogReference dialog, ReservationDto reservation)
+    {
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is bool confirm && confirm)
+        {
+            try
+            {
+                var deleteResult = await ReservationService.DeleteReservationAsync(reservation.Id);
+                if (deleteResult)
+                {
+                    await LoadReservations();
+                    Snackbar.Add("Rezerwacja została usunięta pomyślnie.", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Nie udało się usunąć rezerwacji.", Severity.Error);
+                }
+            }
+            catch (ApiException ex)
+            {
+                Snackbar.Add($"Błąd API: {ex.Message}", Severity.Error);
+                Console.WriteLine($"API Error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+    }
+
+}

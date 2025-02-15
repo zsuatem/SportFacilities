@@ -1,0 +1,48 @@
+﻿@page "/adminpanel"
+@attribute [Authorize(Roles = "Administrator")]
+@using Microsoft.AspNetCore.Authorization
+@inject NavigationManager Navigation
+
+<PageTitle>Panel Administracyjny</PageTitle>
+
+<MudPaper Class="pa-4" Style="margin:2rem auto; width:800px;">
+    <MudText Typo="Typo.h5">Panel Administracyjny</MudText>
+    <p>Widać go tylko, gdy jesteś zalogowany jako administrator!</p>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudCard Class="ma-2">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Zarządzanie obiektami sportowymi</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NavigateToManageFacilities">
+                        Zarządzaj
+                    </MudButton>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        @* <MudItem xs="12" sm="6"> *@
+        @*     <MudCard Class="ma-2"> *@
+        @*         <MudCardContent> *@
+        @*             <MudText Typo="Typo.h6">Zarządzanie rezerwacjami</MudText> *@
+        @*             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NavigateToManageReservations"> *@
+        @*                 Zarządzaj *@
+        @*             </MudButton> *@
+        @*         </MudCardContent> *@
+        @*     </MudCard> *@
+        @* </MudItem> *@
+    </MudGrid>
+</MudPaper>
+
+@code {
+
+    private void NavigateToManageFacilities()
+    {
+        Navigation.NavigateTo("/managefacilities");
+    }
+
+    private void NavigateToManageReservations()
+    {
+        Navigation.NavigateTo("/managereservations");
+    }
+
+}

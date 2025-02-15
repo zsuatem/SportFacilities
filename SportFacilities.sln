@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportFacilities.Backend", "src\SportFacilities.Backend\SportFacilities.Backend.csproj", "{1DA3FDF8-945F-4E77-824B-B246660FE3F1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportFacilities.Frontend", "src\SportFacilities.Frontend\SportFacilities.Frontend.csproj", "{AA19BE54-7958-4E0B-A1BC-2F75D6A5017A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportFacilities.Contracts", "src\SportFacilities.Contracts\SportFacilities.Contracts.csproj", "{AAF43BA6-C6CC-47EC-8548-DE965B283AE2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1DA3FDF8-945F-4E77-824B-B246660FE3F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DA3FDF8-945F-4E77-824B-B246660FE3F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DA3FDF8-945F-4E77-824B-B246660FE3F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DA3FDF8-945F-4E77-824B-B246660FE3F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA19BE54-7958-4E0B-A1BC-2F75D6A5017A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA19BE54-7958-4E0B-A1BC-2F75D6A5017A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA19BE54-7958-4E0B-A1BC-2F75D6A5017A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA19BE54-7958-4E0B-A1BC-2F75D6A5017A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAF43BA6-C6CC-47EC-8548-DE965B283AE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAF43BA6-C6CC-47EC-8548-DE965B283AE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAF43BA6-C6CC-47EC-8548-DE965B283AE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAF43BA6-C6CC-47EC-8548-DE965B283AE2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

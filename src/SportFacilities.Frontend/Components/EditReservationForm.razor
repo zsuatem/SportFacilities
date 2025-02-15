@@ -1,0 +1,162 @@
+﻿@using SportFacilities.Contracts
+@using MudBlazor
+@using Microsoft.AspNetCore.Components.Forms
+@using SportFacilities.Frontend.Services
+@inject IReservationService ReservationService
+@inject ISnackbar Snackbar
+@using System.Text.Json
+
+<EditForm Model="reservationModel" OnValidSubmit="HandleValidSubmit">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6">@FormTitle</MudText>
+        <MudDatePicker @bind-Date="selectedDate" Label="Data" Required="true"/>
+        <MudTimePicker T="TimeSpan" Time="startTime" Label="Godzina rozpoczęcia" Required="true"/>
+        <MudTimePicker T="TimeSpan" Time="endTime" Label="Godzina zakończenia" Required="true"/>
+        <MudTextField @bind-Value="description" Label="Opis" Required="false"/>
+
+        @if (errorMessages.Any())
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-2">
+                <ul>
+                    @foreach (var error in errorMessages)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </MudAlert>
+        }
+
+        <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Class="mt-4">
+            @(IsEdit ? "Zapisz Zmiany" : "Dodaj")
+        </MudButton>
+    </MudPaper>
+</EditForm>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public int FacilityId { get; set; }
+    [Parameter] public ReservationDto ExistingReservation { get; set; }
+    [Parameter] public EventCallback OnValidSubmitCallback { get; set; }
+    private CreateReservationDto reservationModel = new CreateReservationDto();
+    private DateTime? selectedDate = DateTime.Today;
+    private TimeSpan? startTime = TimeSpan.FromHours(9);
+    private TimeSpan? endTime = TimeSpan.FromHours(10);
+    private string description = string.Empty;
+
+    private List<string> errorMessages = new();
+
+    private bool IsEdit => ExistingReservation != null;
+    private string FormTitle => IsEdit ? "Edytuj Rezerwację" : "Dodaj Rezerwację";
+
+    protected override void OnInitialized()
+    {
+        reservationModel.SportFacilityId = FacilityId;
+
+        if (IsEdit)
+        {
+            reservationModel.StartTime = ExistingReservation.StartTime;
+            reservationModel.EndTime = ExistingReservation.EndTime;
+            reservationModel.Description = ExistingReservation.Description;
+
+            selectedDate = ExistingReservation.StartTime.Date;
+            startTime = ExistingReservation.StartTime.TimeOfDay;
+            endTime = ExistingReservation.EndTime.TimeOfDay;
+            description = ExistingReservation.Description;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        errorMessages.Clear();
+
+        if (selectedDate == null)
+            errorMessages.Add("Proszę wybrać datę.");
+        if (startTime == null)
+            errorMessages.Add("Proszę wybrać godzinę rozpoczęcia.");
+        if (endTime == null)
+            errorMessages.Add("Proszę wybrać godzinę zakończenia.");
+        if (selectedDate == null || startTime == null || endTime == null)
+            return;
+        if (endTime <= startTime)
+        {
+            errorMessages.Add("Godzina zakończenia musi być późniejsza niż godzina rozpoczęcia.");
+            return;
+        }
+
+        try
+        {
+            TimeZoneInfo polishTimeZone;
+            try
+            {
+                polishTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                polishTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw");
+            }
+
+            var startLocal = selectedDate.Value.Date + startTime.Value;
+            var endLocal = selectedDate.Value.Date + endTime.Value;
+            var offsetStart = polishTimeZone.GetUtcOffset(startLocal);
+            var offsetEnd = polishTimeZone.GetUtcOffset(endLocal);
+
+            reservationModel.StartTime = new DateTimeOffset(startLocal, offsetStart);
+            reservationModel.EndTime = new DateTimeOffset(endLocal, offsetEnd);
+            reservationModel.Description = description;
+
+            if (IsEdit)
+            {
+                var updateDto = new UpdateReservationDto
+                {
+                    StartTime = reservationModel.StartTime,
+                    EndTime = reservationModel.EndTime,
+                    Description = reservationModel.Description
+                };
+
+                var success = await ReservationService.UpdateReservationAsync(ExistingReservation.Id, updateDto);
+                if (success)
+                    Snackbar.Add("Rezerwacja została zaktualizowana pomyślnie.", Severity.Success);
+                else
+                {
+                    Snackbar.Add("Nie udało się zaktualizować rezerwacji.", Severity.Error);
+                    return;
+                }
+            }
+            else
+            {
+                await ReservationService.CreateReservationAsync(reservationModel);
+                Snackbar.Add("Rezerwacja została dodana pomyślnie.", Severity.Success);
+            }
+
+            await OnValidSubmitCallback.InvokeAsync();
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiException ex)
+        {
+            string errorMessage = "Wystąpił błąd.";
+            try
+            {
+                var errorResponse = JsonSerializer.Deserialize<ErrorResponse>(ex.Response);
+                errorMessage = errorResponse?.message ?? errorMessage;
+            }
+            catch
+            {
+            }
+
+            errorMessages.Add(errorMessage);
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            errorMessages.Add("Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.");
+            Snackbar.Add("Wystąpił nieoczekiwany błąd. Spróbuj ponownie później.", Severity.Error);
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private class ErrorResponse
+    {
+        public string message { get; set; }
+    }
+
+}

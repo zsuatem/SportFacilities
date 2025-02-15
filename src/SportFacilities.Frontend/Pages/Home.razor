@@ -1,0 +1,54 @@
+﻿@page "/"
+@using SportFacilities.Frontend.Services
+@inject ISportFacilityService FacilityService
+@inject NavigationManager Navigation
+
+<PageTitle>Home</PageTitle>
+
+<MudGrid>
+    @if (facilities == null)
+    {
+        <MudItem xs="12">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary"/>
+        </MudItem>
+    }
+    else
+    {
+        @foreach (var facility in facilities)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudLink Href=@($"/facility/{facility.Id}") Style="text-decoration: none;">
+                    <MudCard Class="ma-2" Style="cursor:pointer;">
+                        @* <MudCardMedia Image=@($"images/{GetImageName(facility.Name)}") Height="140" /> *@
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">@facility.Name</MudText>
+                            <MudText Typo="Typo.body2">@facility.Location</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudLink>
+            </MudItem>
+        }
+    }
+</MudGrid>
+
+@code {
+    private List<SportFacilityDto> facilities;
+
+    protected override async Task OnInitializedAsync()
+    {
+        facilities = await FacilityService.GetAllFacilitiesAsync();
+    }
+
+    private void NavigateToFacility(int facilityId)
+    {
+        Navigation.NavigateTo($"/facility/{facilityId}");
+    }
+
+    private string GetImageName(string facilityName)
+    {
+        var imageName = $"{facilityName.ToLower().Replace(' ', '_').Replace(".", "")}.jpg";
+
+        return File.Exists($"wwwroot/images/{imageName}") ? imageName : "default.jpg";
+    }
+
+}

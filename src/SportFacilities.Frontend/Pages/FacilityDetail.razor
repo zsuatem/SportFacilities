@@ -1,0 +1,291 @@
+﻿@page "/facility/{FacilityId:int}"
+@using System.Globalization
+@using System.Security.Claims
+@using SportFacilities.Frontend.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using SportFacilities.Frontend.Components
+@inject ISportFacilityService FacilityService
+@inject IReservationService ReservationService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITokenService TokenService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Facility Details</PageTitle>
+
+@if (facility == null)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary"/>
+}
+else
+{
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4">@facility.Name</MudText>
+        <MudText Typo="Typo.subtitle1">@facility.Location</MudText>
+        <MudText Typo="Typo.subtitle2">Opis:</MudText>
+        <MudText Typo="Typo.body2">@facility.Description</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-2 mt-2">
+        <MudStack Spacing="2">
+            <MudButton
+                OnClick="OnExpandCollapseClick">@(expanded ? "Dostępność obiektu" : "Dostępność obiektu")</MudButton>
+            <MudDivider/>
+            <MudCollapse Expanded="expanded">
+                <MudTable
+                    Items="@facility.Availabilities.OrderBy(a => a.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)a.DayOfWeek)"
+                    Dense="true" Hover="false">
+                    <HeaderContent>
+                        <MudTh Style="padding: 0.5rem 1rem;">Dzień</MudTh>
+                        <MudTh Style="padding: 0.5rem 1rem;">Godziny</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd Style="padding: 0.5rem 1rem;">@GetDayNamePolish(context.DayOfWeek)</MudTd>
+                        <MudTd
+                            Style="padding: 0.5rem 1rem;">
+                            @if (context.IsAvailable && context.OpeningTime.HasValue && context.ClosingTime.HasValue)
+                            {
+                                <MudText Color="Color.Success"
+                                         Typo="Typo.caption"> @($"{context.OpeningTime.Value:hh\\:mm} - {context.ClosingTime.Value:hh\\:mm}") </MudText>
+                            }
+                            else
+                            {
+                                <MudText Color="Color.Error" Typo="Typo.caption">Niedostępny</MudText>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudCollapse>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.h5">Rezerwacje</MudText>
+        <MudCalendar Items="events" MonthCellMinHeight="120">
+            <ToolbarContent>
+                @if (isAuthenticated)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mx-1"
+                               OnClick="OpenAddReservationDialog">
+                        Dodaj Rezerwację
+                    </MudButton>
+                }
+            </ToolbarContent>
+            <CellTemplate>
+                <div
+                    style="width: 100%; height: 100%; border: 2px solid @GetColor(((CustomCalendarItem)context).Color)">
+                    <div style="background-color: @GetColor(((CustomCalendarItem)context).Color)">
+                        <MudText Style="color: #ffffff;" Typo="Typo.body1"
+                                 Align="Align.Center">@(((CustomCalendarItem)context).Title)</MudText>
+                    </div>
+                    <div class="pa-2">
+                        <MudText Typo="Typo.body2">@(((CustomCalendarItem)context).Text)</MudText>
+                    </div>
+                </div>
+            </CellTemplate>
+        </MudCalendar>
+        @if (isAuthenticated)
+        {
+            <MudPaper Class="pa-4 mt-4">
+                <MudText Typo="Typo.h5">Twoje Rezerwacje</MudText>
+
+                <MudTable Items="userReservations" Hover="true" Dense="true" SortLabel="Sortuj">
+                    <HeaderContent>
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<ReservationDto, object>(r => r.StartTime)">
+                                Data
+                            </MudTableSortLabel>
+                        </MudTh>
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<ReservationDto, object>(r => r.StartTime.TimeOfDay)">
+                                Godzina rozpoczęcia
+                            </MudTableSortLabel>
+                        </MudTh>
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<ReservationDto, object>(r => r.EndTime.TimeOfDay)">
+                                Godzina zakończenia
+                            </MudTableSortLabel>
+                        </MudTh>
+                        <MudTh>
+                            <MudTableSortLabel SortBy="new Func<ReservationDto, object>(r => r.Description)">
+                                Opis
+                            </MudTableSortLabel>
+                        </MudTh>
+                        <MudTh>Akcje</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.StartTime.ToString("yyyy-MM-dd")</MudTd>
+                        <MudTd>@context.StartTime.ToString("HH:mm")</MudTd>
+                        <MudTd>@context.EndTime.ToString("HH:mm")</MudTd>
+                        <MudTd>@context.Description</MudTd>
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                           OnClick="() => OpenEditReservationDialog(context)"/>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                           OnClick="() => ConfirmDeleteReservation(context)"/>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mt-4">Zaloguj się, aby dokonać rezerwacji.</MudText>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int FacilityId { get; set; }
+
+    private string GetColor(Color color) => $"var(--mud-palette-{color.ToDescriptionString()})";
+
+    private SportFacilityDto facility;
+    private List<CustomCalendarItem> events = new();
+    private bool isAuthenticated;
+    private MudCalendar _calendar;
+
+    private List<ReservationDto> allReservations = new();
+    private List<ReservationDto> userReservations = new();
+    private string currentUserId;
+    bool expanded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity.IsAuthenticated;
+        currentUserId = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+        facility = await FacilityService.GetFacilityByIdAsync(FacilityId);
+
+
+        await LoadReservations();
+    }
+
+    private async Task LoadReservations()
+    {
+        try
+        {
+            allReservations = await ReservationService.GetReservationsAsync(FacilityId);
+            events.Clear();
+
+            foreach (var reservation in allReservations)
+            {
+                events.Add(new CustomCalendarItem
+                {
+                    Start = reservation.StartTime.UtcDateTime,
+                    End = reservation.EndTime.UtcDateTime,
+                    Title = reservation.UserId == currentUserId ? "Twoja rezerwacja" : "Rezerwacja",
+                    Text = reservation.Description,
+                    Color = reservation.UserId == currentUserId ? Color.Success : Color.Primary,
+                });
+            }
+
+            userReservations = allReservations.Where(r => r.UserId == currentUserId).ToList();
+        }
+        catch (ApiException ex)
+        {
+            if (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await TokenService.RemoveTokenAsync();
+                if (AuthStateProvider is ApiAuthenticationStateProvider provider)
+                {
+                    provider.NotifyUserLogout();
+                }
+
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                Console.WriteLine($"Błąd API: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Nieoczekiwany błąd: {ex.Message}");
+        }
+    }
+
+    private async Task OpenAddReservationDialog()
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("FacilityId", FacilityId);
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<EditReservationForm>("Dodaj Rezerwację", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadReservations();
+            Snackbar.Add("Rezerwacja została dodana pomyślnie.", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditReservationDialog(ReservationDto reservation)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("FacilityId", FacilityId);
+        parameters.Add("ExistingReservation", reservation);
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<EditReservationForm>("Edytuj Rezerwację", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadReservations();
+            Snackbar.Add("Rezerwacja została zaktualizowana pomyślnie.", Severity.Success);
+        }
+    }
+
+    private async void ConfirmDeleteReservation(ReservationDto reservation)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Message", $"Czy na pewno chcesz usunąć rezerwację: {reservation.Description}?" }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+
+        var dialog = DialogService.Show<ConfirmDeleteDialog>("Usuwanie Rezerwacji", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is bool confirm && confirm)
+        {
+            try
+            {
+                var deleteResult = await ReservationService.DeleteReservationAsync(reservation.Id);
+                if (deleteResult)
+                {
+                    Snackbar.Add("Rezerwacja została usunięta pomyślnie.", Severity.Success);
+
+                    await LoadReservations();
+                    StateHasChanged();
+                }
+                else
+                {
+                    Snackbar.Add("Nie udało się usunąć rezerwacji.", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Błąd podczas usuwania rezerwacji: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private string GetDayNamePolish(DayOfWeek day)
+    {
+        var culture = new CultureInfo("pl-PL");
+        return culture.DateTimeFormat.GetDayName(day);
+    }
+
+    private void OnExpandCollapseClick()
+    {
+        expanded = !expanded;
+    }
+
+}

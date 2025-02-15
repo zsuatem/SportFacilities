@@ -1,0 +1,24 @@
+﻿@using MudBlazor
+@inject IDialogService DialogService
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.body1">@Message</MudText>
+    <MudSpacer />
+    <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Confirm">Tak</MudButton>
+    <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">Nie</MudButton>
+</MudPaper>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public string Message { get; set; }
+
+    private void Confirm()
+    {
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

@@ -1,0 +1,31 @@
+﻿@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <MudThemeProvider/>
+    <MudPopoverProvider/>
+    <MudDialogProvider/>
+    <MudSnackbarProvider/>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <MudPaper Class="pa-4" Style="margin:2rem auto; width:400px;">
+                            <MudText Typo="Typo.h5">Brak dostępu</MudText>
+                            <p>Musisz być zalogowany, aby zobaczyć tę stronę.</p>
+                            <MudButton OnClick="@(() => Navigation.NavigateTo("/login"))">Zaloguj się</MudButton>
+                        </MudPaper>
+                    </LayoutView>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudPaper Class="pa-4" Style="margin:2rem auto; width:400px;">
+                    <MudText Typo="Typo.h5">Nie znaleziono strony.</MudText>
+                </MudPaper>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
